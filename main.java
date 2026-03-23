@@ -139,3 +139,50 @@ public final class AchanAX {
         String roundIdStr = getArg(args, "--roundId", true);
         String prevBlockHashHex = getArg(args, "--prevBlockHash", true);
         String timestampStr = getArg(args, "--timestamp", true);
+
+        byte[] atgDomain = Hex.fromHex32(atgDomainHex, "atgDomain");
+        long roundId = Long.parseLong(roundIdStr.trim());
+        byte[] prevBlockHash = Hex.fromHex32(prevBlockHashHex, "prevBlockHash");
+        long timestamp = Long.parseLong(timestampStr.trim());
+        if (roundId < 0) throw new IllegalArgumentException("roundId must be >= 0");
+        if (timestamp < 0) throw new IllegalArgumentException("timestamp must be >= 0");
+
+        byte[] roundIdEnc = abiUint256To32Bytes(BigInteger.valueOf(roundId));
+        byte[] tsEnc = abiUint256To32Bytes(BigInteger.valueOf(timestamp));
+
+        // salt = keccak256(abi.encodePacked(ATG_DOMAIN, currentRoundId, blockhash(block.number - 1), block.timestamp))
+        byte[] saltPacked = concat(atgDomain, roundIdEnc, prevBlockHash, tsEnc);
+        byte[] salt = Keccak.keccak256(saltPacked);
+
+        // commitLen
+        byte[] commitLenHash = Keccak.keccak256(concat(salt, asciiBytes("COMMIT_LEN")));
+        BigInteger commitLenV = new BigInteger(1, commitLenHash).mod(twoTo64());
+        long commitLen = boundU64(commitLenV.longValue(), ATG_MIN_COMMIT_SECS, ATG_MAX_COMMIT_SECS);
+
+        byte[] revealLenHash = Keccak.keccak256(concat(salt, asciiBytes("REVEAL_LEN")));
+        BigInteger revealLenV = new BigInteger(1, revealLenHash).mod(twoTo64());
+        long revealLen = boundU64(revealLenV.longValue(), ATG_MIN_REVEAL_SECS, ATG_MAX_REVEAL_SECS);
+
+        // minDepositWei
+        byte[] minDepositHash = Keccak.keccak256(concat(salt, asciiBytes("MIN_DEPOSIT")));
+        BigInteger minDepositU256 = new BigInteger(1, minDepositHash);
+        long minDepositWei = boundU256(minDepositU256, ATG_MIN_DEPOSIT_WEI, 5_000_000_000_000_000_000L);
+
+        // feeBps
+        byte[] feeHash = Keccak.keccak256(concat(salt, asciiBytes("FEE_BPS")));
+        int feeBps = boundU16(modToInt(feeHash, ATG_MAX_FEE_BPS));
+        if (feeBps == 0 || feeBps > ATG_MAX_FEE_BPS) feeBps = ATG_MAX_FEE_BPS;
+
+        // winOddsBps
+        byte[] winHash = Keccak.keccak256(concat(salt, asciiBytes("WIN_ODDS")));
+        int winOddsBps = boundU16(modToInt(winHash, ATG_MAX_WIN_ODDS_BPS));
+        if (winOddsBps < ATG_MIN_WIN_ODDS_BPS) winOddsBps = ATG_MIN_WIN_ODDS_BPS;
+
+        // maxEntries
+        byte[] maxEntriesHash = Keccak.keccak256(concat(salt, asciiBytes("MAX_ENTRIES")));
+        int maxEntries = boundU32((modToInt(maxEntriesHash, 400) + 16), 16, ATG_HARD_ENTRY_CAP);
+
+        long commitEndsAt = timestamp + commitLen;
+        long revealEndsAt = commitEndsAt + revealLen;
+
+        System.out.println("roundSalt=" + "0x" + Hex.toHex(salt));
