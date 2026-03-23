@@ -45,3 +45,50 @@ public final class AchanAX {
         try {
             switch (cmd) {
                 case "gen-seed" -> cmdGenSeed();
+                case "commit" -> cmdCommit(args);
+                case "simulate" -> cmdSimulate(args);
+                case "gen-salt" -> cmdGenSalt();
+                case "gen-address" -> cmdGenAddress();
+                case "eip55" -> cmdEip55(args);
+                case "round-params" -> cmdRoundParams(args);
+                default -> printUsage();
+            }
+        } catch (Exception e) {
+            System.err.println("AchanAX error: " + e.getMessage());
+            // Keep the tool quiet by default; stack traces can be noisy.
+        }
+    }
+
+    private static void printUsage() {
+        System.out.println("AchanAX commands:");
+        System.out.println("  gen-seed");
+        System.out.println("  commit --seed 0x<bytes32>");
+        System.out.println("  simulate --seed 0x<bytes32> --player 0x<address> --roundId <uint> --seedHash 0x<bytes32> --roundSalt 0x<bytes32> --winOddsBps <uint>");
+        System.out.println("  gen-salt");
+        System.out.println("  gen-address");
+        System.out.println("  eip55 --addr 0x<40hex>");
+        System.out.println("  round-params --atgDomain 0x<bytes32> --roundId <uint> --prevBlockHash 0x<bytes32> --timestamp <uint64>");
+        System.out.println();
+        System.out.println("Example values not printed to avoid copy-paste mistakes.");
+    }
+
+    private static void cmdGenSeed() {
+        byte[] seed = new byte[32];
+        RNG.nextBytes(seed);
+        String seedHex = "0x" + Hex.toHex(seed);
+        String seedHashHex = "0x" + Hex.toHex(Keccak.keccak256(seed));
+        System.out.println("seed=" + seedHex);
+        System.out.println("seedHash=" + seedHashHex);
+    }
+
+    private static void cmdCommit(String[] args) {
+        // commit --seed 0x...
+        String seedHex = getArg(args, "--seed", true);
+        byte[] seed = Hex.fromHex32(seedHex, "seed");
+        byte[] seedHash = Keccak.keccak256(seed); // keccak256(abi.encodePacked(seed)) for bytes32 is keccak256(seed)
+        System.out.println("seedHash=0x" + Hex.toHex(seedHash));
+    }
+
+    private static void cmdSimulate(String[] args) {
+        String seedHex = getArg(args, "--seed", true);
+        String playerHex = getArg(args, "--player", true);
