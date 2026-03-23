@@ -92,3 +92,50 @@ public final class AchanAX {
     private static void cmdSimulate(String[] args) {
         String seedHex = getArg(args, "--seed", true);
         String playerHex = getArg(args, "--player", true);
+        String roundIdStr = getArg(args, "--roundId", true);
+        String seedHashHex = getArg(args, "--seedHash", true);
+        String roundSaltHex = getArg(args, "--roundSalt", true);
+        String winOddsBpsStr = getArg(args, "--winOddsBps", true);
+
+        byte[] seed = Hex.fromHex32(seedHex, "seed");
+        byte[] player = Hex.fromHex20(playerHex, "player");
+        BigInteger roundId = new BigInteger(roundIdStr.trim());
+        if (roundId.signum() < 0) throw new IllegalArgumentException("roundId must be non-negative");
+        byte[] seedHash = Hex.fromHex32(seedHashHex, "seedHash");
+        byte[] roundSalt = Hex.fromHex32(roundSaltHex, "roundSalt");
+        int winOddsBps = new BigInteger(winOddsBpsStr.trim()).intValueExact();
+
+        byte[] entropy = abiPackedEntropy(seed, player, roundId, seedHash, roundSalt);
+        BigInteger entropyInt = new BigInteger(1, entropy);
+        int rollBps = entropyInt.mod(BigInteger.valueOf(BPS_DENOM)).intValueExact();
+        boolean candidate = rollBps < winOddsBps;
+
+        System.out.println("rollBps=" + rollBps);
+        System.out.println("candidate=" + candidate);
+        System.out.println("entropy=0x" + Hex.toHex(entropy));
+    }
+
+    private static void cmdGenSalt() {
+        byte[] salt = new byte[32];
+        RNG.nextBytes(salt);
+        String saltHex = "0x" + Hex.toHex(salt);
+        System.out.println("roundSalt=" + saltHex);
+    }
+
+    private static void cmdGenAddress() {
+        String addr = eip55Checksum(randomAddressLowercaseHex());
+        System.out.println("address=" + addr);
+    }
+
+    private static void cmdEip55(String[] args) {
+        String addr = getArg(args, "--addr", true);
+        String lower = normalizeAddressLowercase(addr);
+        String chk = eip55Checksum(lower);
+        System.out.println("eip55=" + chk);
+    }
+
+    private static void cmdRoundParams(String[] args) {
+        String atgDomainHex = getArg(args, "--atgDomain", true);
+        String roundIdStr = getArg(args, "--roundId", true);
+        String prevBlockHashHex = getArg(args, "--prevBlockHash", true);
+        String timestampStr = getArg(args, "--timestamp", true);
