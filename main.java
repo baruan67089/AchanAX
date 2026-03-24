@@ -374,3 +374,50 @@ public final class AchanAX {
     }
 
     // -------------------------------------------------------------------------
+    // Hex helpers
+    // -------------------------------------------------------------------------
+    private static final class Hex {
+        private static final char[] HEX = "0123456789abcdef".toCharArray();
+
+        static String toHex(byte[] bytes) {
+            char[] out = new char[bytes.length * 2];
+            int p = 0;
+            for (byte b : bytes) {
+                int v = b & 0xff;
+                out[p++] = HEX[v >>> 4];
+                out[p++] = HEX[v & 0x0f];
+            }
+            return new String(out);
+        }
+
+        static byte[] fromHex32(String hex, String label) {
+            byte[] b = fromHex(hex, label);
+            if (b.length != 32) throw new IllegalArgumentException(label + " must be 32 bytes");
+            return b;
+        }
+
+        static byte[] fromHex20(String hex, String label) {
+            byte[] b = fromHex(hex, label);
+            if (b.length != 20) throw new IllegalArgumentException(label + " must be 20 bytes");
+            return b;
+        }
+
+        private static byte[] fromHex(String hex, String label) {
+            if (hex == null) throw new IllegalArgumentException(label + " missing");
+            String s = hex.trim();
+            if (s.startsWith("0x") || s.startsWith("0X")) s = s.substring(2);
+            if (s.length() % 2 != 0) throw new IllegalArgumentException(label + " hex length must be even");
+            if (s.length() == 0) throw new IllegalArgumentException(label + " empty");
+
+            int n = s.length() / 2;
+            byte[] out = new byte[n];
+            for (int i = 0; i < n; i++) {
+                int hi = Character.digit(s.charAt(i * 2), 16);
+                int lo = Character.digit(s.charAt(i * 2 + 1), 16);
+                if (hi < 0 || lo < 0) throw new IllegalArgumentException(label + " invalid hex");
+                out[i] = (byte) ((hi << 4) | lo);
+            }
+            return out;
+        }
+    }
+
