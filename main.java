@@ -233,3 +233,50 @@ public final class AchanAX {
         byte[] out = new byte[total];
         int pos = 0;
         for (byte[] p : parts) {
+            if (p == null) continue;
+            System.arraycopy(p, 0, out, pos, p.length);
+            pos += p.length;
+        }
+        return out;
+    }
+
+    private static byte[] asciiBytes(String s) {
+        if (s == null) return new byte[0];
+        return s.getBytes(StandardCharsets.US_ASCII);
+    }
+
+    private static BigInteger twoTo64() {
+        return BigInteger.ONE.shiftLeft(64);
+    }
+
+    private static int modToInt(byte[] hash, int mod) {
+        BigInteger x = new BigInteger(1, hash);
+        return x.mod(BigInteger.valueOf(mod)).intValueExact();
+    }
+
+    private static long boundU64(long v, long minV, long maxV) {
+        if (v < minV) return minV;
+        if (v > maxV) return maxV;
+        return v;
+    }
+
+    private static int boundU16(int v) {
+        if (v <= 0) return 1;
+        // keep within uint16
+        if (v > 65535) return 65535;
+        return v;
+    }
+
+    private static int boundU32(int v, int minV, int maxV) {
+        if (v < minV) return minV;
+        if (v > maxV) return maxV;
+        return v;
+    }
+
+    private static long boundU256(BigInteger v, long minV, long maxV) {
+        // v can be up to 2^256-1; we clamp to [minV, maxV] by comparing via BigInteger.
+        if (v.compareTo(BigInteger.valueOf(minV)) < 0) return minV;
+        if (v.compareTo(BigInteger.valueOf(maxV)) > 0) return maxV;
+        return v.longValue();
+    }
+
