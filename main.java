@@ -186,3 +186,50 @@ public final class AchanAX {
         long revealEndsAt = commitEndsAt + revealLen;
 
         System.out.println("roundSalt=" + "0x" + Hex.toHex(salt));
+        System.out.println("commitLen=" + commitLen + "s");
+        System.out.println("revealLen=" + revealLen + "s");
+        System.out.println("minDepositWei=" + minDepositWei);
+        System.out.println("minDepositEth=" + (minDepositWei / 1e18));
+        System.out.println("feeBps=" + feeBps);
+        System.out.println("winOddsBps=" + winOddsBps);
+        System.out.println("maxEntries=" + maxEntries);
+        System.out.println("commitEndsAt=" + commitEndsAt + " (unix)");
+        System.out.println("revealEndsAt=" + revealEndsAt + " (unix)");
+    }
+
+    private static void cmdComputeRoll(String[] args) {
+        // compute-roll --seed 0x.. --player 0x.. --roundId <uint> --seedHash 0x.. --roundSalt 0x.. --winOddsBps <uint>
+        String seedHex = getArg(args, "--seed", true);
+        String playerHex = getArg(args, "--player", true);
+        String roundIdStr = getArg(args, "--roundId", true);
+        String seedHashHex = getArg(args, "--seedHash", true);
+        String roundSaltHex = getArg(args, "--roundSalt", true);
+        String winOddsBpsStr = getArg(args, "--winOddsBps", true);
+
+        byte[] seed = Hex.fromHex32(seedHex, "seed");
+        byte[] player = Hex.fromHex20(playerHex, "player");
+        BigInteger roundId = new BigInteger(roundIdStr.trim());
+        byte[] seedHash = Hex.fromHex32(seedHashHex, "seedHash");
+        byte[] roundSalt = Hex.fromHex32(roundSaltHex, "roundSalt");
+        int winOddsBps = new BigInteger(winOddsBpsStr.trim()).intValueExact();
+
+        byte[] entropy = abiPackedEntropy(seed, player, roundId, seedHash, roundSalt);
+        BigInteger entropyInt = new BigInteger(1, entropy);
+        int rollBps = entropyInt.mod(BigInteger.valueOf(BPS_DENOM)).intValueExact();
+        boolean candidate = rollBps < winOddsBps;
+        System.out.println("rollBps=" + rollBps);
+        System.out.println("candidate=" + candidate);
+    }
+
+    // -------------------------------------------------------------------------
+    // Shared math + encoding helpers
+    // -------------------------------------------------------------------------
+    private static byte[] concat(byte[]... parts) {
+        int total = 0;
+        for (byte[] p : parts) {
+            if (p == null) continue;
+            total += p.length;
+        }
+        byte[] out = new byte[total];
+        int pos = 0;
+        for (byte[] p : parts) {
