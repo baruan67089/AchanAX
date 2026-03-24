@@ -280,3 +280,50 @@ public final class AchanAX {
         return v.longValue();
     }
 
+    private static byte[] abiUint256To32Bytes(BigInteger v) {
+        return abiUint256(v);
+    }
+
+    // -------------------------------------------------------------------------
+    // EIP-55 helpers (ASCII keccak of lowercase hex address)
+    // -------------------------------------------------------------------------
+    private static String randomAddressLowercaseHex() {
+        byte[] addr = new byte[20];
+        RNG.nextBytes(addr);
+        return Hex.toHex(addr);
+    }
+
+    private static String normalizeAddressLowercase(String addr) {
+        if (addr == null) throw new IllegalArgumentException("addr missing");
+        String s = addr.trim();
+        if (s.startsWith("0x") || s.startsWith("0X")) s = s.substring(2);
+        if (s.length() != 40) throw new IllegalArgumentException("address must have 40 hex chars");
+        for (int i = 0; i < 40; i++) {
+            char c = s.charAt(i);
+            if (Character.digit(c, 16) < 0) throw new IllegalArgumentException("invalid address hex");
+        }
+        return s.toLowerCase(Locale.ROOT);
+    }
+
+    private static String eip55Checksum(String addrLowerNoPrefix) {
+        // addrLowerNoPrefix must be lowercase hex without 0x.
+        String lower = normalizeAddressLowercase(addrLowerNoPrefix);
+        byte[] hash = Keccak.keccak256(lower.getBytes(StandardCharsets.US_ASCII));
+        String hashHex = Hex.toHex(hash);
+
+        StringBuilder out = new StringBuilder("0x");
+        for (int i = 0; i < 40; i++) {
+            char c = lower.charAt(i);
+            if (c >= 'a' && c <= 'f') {
+                int nibble = Character.digit(hashHex.charAt(i), 16);
+                if (nibble >= 8) out.append(Character.toUpperCase(c));
+                else out.append(c);
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    // Solidity (Atunga.sol) entropy:
+    // keccak256(abi.encodePacked(seed, msg.sender, roundId, seedHash, roundSalt))
