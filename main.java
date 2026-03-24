@@ -327,3 +327,50 @@ public final class AchanAX {
 
     // Solidity (Atunga.sol) entropy:
     // keccak256(abi.encodePacked(seed, msg.sender, roundId, seedHash, roundSalt))
+    // where:
+    // - seed: bytes32 (32 bytes)
+    // - msg.sender: address (20 bytes)
+    // - roundId: uint256 (32 bytes big-endian)
+    // - seedHash: bytes32 (32 bytes)
+    // - roundSalt: bytes32 (32 bytes)
+    private static byte[] abiPackedEntropy(byte[] seed, byte[] player20, BigInteger roundId, byte[] seedHash32, byte[] roundSalt32) {
+        if (seed.length != 32) throw new IllegalArgumentException("seed must be 32 bytes");
+        if (player20.length != 20) throw new IllegalArgumentException("player must be 20 bytes");
+        if (seedHash32.length != 32) throw new IllegalArgumentException("seedHash must be 32 bytes");
+        if (roundSalt32.length != 32) throw new IllegalArgumentException("roundSalt must be 32 bytes");
+        if (roundId.signum() < 0) throw new IllegalArgumentException("roundId must be non-negative");
+
+        byte[] roundIdEnc = abiUint256(roundId);
+        byte[] packed = new byte[32 + 20 + 32 + 32 + 32];
+        int p = 0;
+        System.arraycopy(seed, 0, packed, p, 32); p += 32;
+        System.arraycopy(player20, 0, packed, p, 20); p += 20;
+        System.arraycopy(roundIdEnc, 0, packed, p, 32); p += 32;
+        System.arraycopy(seedHash32, 0, packed, p, 32); p += 32;
+        System.arraycopy(roundSalt32, 0, packed, p, 32); p += 32;
+        return Keccak.keccak256(packed);
+    }
+
+    private static byte[] abiUint256(BigInteger v) {
+        byte[] raw = v.toByteArray();
+        if (raw.length > 33) throw new IllegalArgumentException("uint256 too large");
+        byte[] out = new byte[32];
+        int srcStart = raw[0] == 0 ? 1 : 0;
+        int srcLen = raw.length - srcStart;
+        if (srcLen > 32) throw new IllegalArgumentException("uint256 too large");
+        System.arraycopy(raw, srcStart, out, 32 - srcLen, srcLen);
+        return out;
+    }
+
+    private static String getArg(String[] args, String key, boolean required) {
+        if (args == null) throw new IllegalArgumentException("args missing");
+        for (int i = 0; i < args.length; i++) {
+            if (key.equals(args[i]) && i + 1 < args.length) {
+                return args[i + 1];
+            }
+        }
+        if (required) throw new IllegalArgumentException("Missing argument: " + key);
+        return null;
+    }
+
+    // -------------------------------------------------------------------------
