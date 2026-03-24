@@ -468,3 +468,50 @@ public final class AchanAX {
             keccakf(st);
 
             // squeeze 32 bytes => first 4 lanes (each 8 bytes)
+            byte[] out = new byte[32];
+            for (int i = 0; i < 4; i++) {
+                long lane = st[i];
+                writeLE(out, i * 8, lane);
+            }
+            return out;
+        }
+
+        private static void absorbBlock(long[] st, byte[] src, int off, int rateBytes) {
+            int lanes = rateBytes / 8; // 17 lanes for 1088 rate
+            for (int i = 0; i < lanes; i++) {
+                long lane = readLE(src, off + i * 8);
+                st[i] ^= lane;
+            }
+        }
+
+        private static long readLE(byte[] b, int off) {
+            long v = 0;
+            v |= (b[off] & 0xffL);
+            v |= (b[off + 1] & 0xffL) << 8;
+            v |= (b[off + 2] & 0xffL) << 16;
+            v |= (b[off + 3] & 0xffL) << 24;
+            v |= (b[off + 4] & 0xffL) << 32;
+            v |= (b[off + 5] & 0xffL) << 40;
+            v |= (b[off + 6] & 0xffL) << 48;
+            v |= (b[off + 7] & 0xffL) << 56;
+            return v;
+        }
+
+        private static void writeLE(byte[] out, int off, long v) {
+            out[off] = (byte) (v);
+            out[off + 1] = (byte) (v >>> 8);
+            out[off + 2] = (byte) (v >>> 16);
+            out[off + 3] = (byte) (v >>> 24);
+            out[off + 4] = (byte) (v >>> 32);
+            out[off + 5] = (byte) (v >>> 40);
+            out[off + 6] = (byte) (v >>> 48);
+            out[off + 7] = (byte) (v >>> 56);
+        }
+
+        private static void keccakf(long[] A) {
+            long[] B = new long[25];
+            long[] C = new long[5];
+            long[] D = new long[5];
+
+            for (int round = 0; round < 24; round++) {
+                // Theta
