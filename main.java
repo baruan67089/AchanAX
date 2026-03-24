@@ -421,3 +421,50 @@ public final class AchanAX {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Keccak-256 (keccak256) — pure Java Keccak-f[1600] implementation
+    // Padding: 0x01 .. 0x80 (Keccak, not SHA3)
+    // -------------------------------------------------------------------------
+    private static final class Keccak {
+        // Round constants for Keccak-f[1600]
+        private static final long[] RC = new long[] {
+                0x0000000000000001L, 0x0000000000008082L, 0x800000000000808aL, 0x8000000080008000L,
+                0x000000000000808bL, 0x0000000080000001L, 0x8000000080008081L, 0x8000000000008009L,
+                0x000000000000008aL, 0x0000000000000088L, 0x0000000080008009L, 0x000000008000000aL,
+                0x000000008000808bL, 0x800000000000008bL, 0x8000000000008089L, 0x8000000000008003L,
+                0x8000000000008002L, 0x8000000000000080L, 0x000000000000800aL, 0x800000008000000aL,
+                0x8000000080008081L, 0x8000000000008080L, 0x0000000080000001L, 0x8000000080008008L
+        };
+
+        // Rotation offsets for Rho step
+        private static final int[][] ROT = new int[][]{
+                { 0, 36, 3, 41, 18 },
+                { 1, 44, 10, 45, 2 },
+                { 62, 6, 43, 15, 61 },
+                { 28, 55, 25, 21, 56 },
+                { 27, 20, 39, 8, 14 }
+        };
+
+        static byte[] keccak256(byte[] input) {
+            // Keccak-256: capacity=512 bits, rate=1088 bits => 136 bytes
+            final int rateBytes = 136;
+            long[] st = new long[25];
+
+            int offset = 0;
+            while (offset + rateBytes <= input.length) {
+                absorbBlock(st, input, offset, rateBytes);
+                keccakf(st);
+                offset += rateBytes;
+            }
+
+            // padding
+            byte[] block = new byte[rateBytes];
+            int rem = input.length - offset;
+            if (rem > 0) System.arraycopy(input, offset, block, 0, rem);
+            block[rem] = 0x01;
+            block[rateBytes - 1] |= (byte) 0x80;
+
+            absorbBlock(st, block, 0, rateBytes);
+            keccakf(st);
+
+            // squeeze 32 bytes => first 4 lanes (each 8 bytes)
